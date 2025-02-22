@@ -63,6 +63,36 @@ class BrowserHistoryAnalyzer:
                     if timestamp > self.daily_patterns[date_str]['last_activity']:
                         self.daily_patterns[date_str]['last_activity'] = timestamp
 
+    def process_daily_timestamps(self) -> Dict[str, Tuple[str, str]]:
+        daily_timestamps = {}
+
+        with open(self.file_path, encoding='utf-8') as file:
+            for record in ijson.items(file, "Browser History.item"):
+                timestamp = record["time_usec"]
+                dt = self._convert_timestamp(timestamp)
+                date_str = dt.date().isoformat()
+
+                if date_str not in daily_timestamps:
+                    daily_timestamps[date_str] = {
+                        'first_timestamp': timestamp,
+                        'last_timestamp': timestamp
+                    }
+                else:
+                    if timestamp < daily_timestamps[date_str]['first_timestamp']:
+                        daily_timestamps[date_str]['first_timestamp'] = timestamp
+                    if timestamp > daily_timestamps[date_str]['last_timestamp']:
+                        daily_timestamps[date_str]['last_timestamp'] = timestamp
+
+        formatted_daily_timestamps = {}
+        for date, timestamps in daily_timestamps.items():
+            first_dt = self._convert_timestamp(timestamps['first_timestamp'])
+            last_dt = self._convert_timestamp(timestamps['last_timestamp'])
+            formatted_daily_timestamps[date] = (
+                self._format_datetime(first_dt),
+                self._format_datetime(last_dt)
+            )
+
+        return formatted_daily_timestamps
     def calculate_sleep_schedule(self, min_gap_hours: int = 6) -> Dict[str, Any]:
         if not self.daily_patterns:
             self.analyze_daily_patterns()
@@ -171,7 +201,7 @@ class BrowserHistoryAnalyzer:
 
 
 def main():
-    file_path = "D:/Downloads/Takeout/Chrome/History.json"
+    file_path = "C:/Users/Vincent/Downloads/History.json"
     analyzer = BrowserHistoryAnalyzer(file_path)
 
     analyzer.process_history(cutoff_timestamp=1735707600)
