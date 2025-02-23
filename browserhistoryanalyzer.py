@@ -71,7 +71,8 @@ class BrowserHistoryAnalyzer:
                 timestamp = record["time_usec"]
                 dt = self._convert_timestamp(timestamp)
                 date_str = dt.date().isoformat()
-
+                if dt < datetime.strptime("01 01, 2025, 12:00:00 AM -0500", '%m %d, %Y, %I:%M:%S %p %z'):
+                    continue
                 if date_str not in daily_timestamps:
                     daily_timestamps[date_str] = {
                         'first_timestamp': timestamp,
@@ -87,12 +88,22 @@ class BrowserHistoryAnalyzer:
         for date, timestamps in daily_timestamps.items():
             first_dt = self._convert_timestamp(timestamps['first_timestamp'])
             last_dt = self._convert_timestamp(timestamps['last_timestamp'])
+
             formatted_daily_timestamps[date] = (
-                self._format_datetime(first_dt),
-                self._format_datetime(last_dt)
+                self.normalize_for_analysis(self._format_datetime(first_dt)),
+                self.normalize_for_analysis(self._format_datetime(last_dt))
             )
 
         return formatted_daily_timestamps
+
+    def normalize_for_analysis(self, dt): # added to better format outputs between this class and the others used for analysis
+        ind = dt.find(":")
+        offset = 0
+        if dt[ind-2] == " ":
+            offset = 1
+        if len(dt[ind-2+offset:]) < 7:
+            return "0" + dt[ind-2+offset:-2] + " " + dt[-2:]
+        return dt[ind-2+offset:-2] + " " + dt[-2:]
     def calculate_sleep_schedule(self, min_gap_hours: int = 6) -> Dict[str, Any]:
         if not self.daily_patterns:
             self.analyze_daily_patterns()
@@ -199,27 +210,3 @@ class BrowserHistoryAnalyzer:
             with open(filename, "w+") as file:
                 json.dump(data, file, indent=4)
 
-
-def main():
-    file_path = "C:/Users/Vincent/Downloads/History.json"
-    analyzer = BrowserHistoryAnalyzer(file_path)
-
-    analyzer.process_history(cutoff_timestamp=1735707600)
-    analyzer.analyze_daily_patterns(cutoff_timestamp=1735707600)
-
-    sleep_schedule = analyzer.calculate_sleep_schedule()
-    print("\nAnalyzed Sleep Schedule:")
-    for key, value in sleep_schedule.items():
-        print(f"{key.replace('_', ' ').title()}: {value}")
-
-    analyzer.save_results()
-
-    _, site_frequencies = analyzer.get_last_sites_per_day()
-    print("\nFrequency of sites being last visited:")
-    for title, count in site_frequencies:
-        if count > 1:
-            print(f"{title}: {count}")
-
-
-if __name__ == "__main__":
-    main()
